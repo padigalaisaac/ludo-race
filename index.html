@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ludo — 4 Player (Browser)</title>
+  <style>
+    :root{
+      --bg:#0f1724;
+      --card:#0b1220;
+      --muted:#94a3b8;
+      --accent:#06b6d4;
+      --glass: rgba(255,255,255,0.03);
+      --radius:12px;
+    }
+    *{box-sizing:border-box;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;}
+    body{
+      margin:0;
+      min-height:10vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background: linear-gradient(180deg,#071054 0%, #0b1220 60%);
+      color:#e6eef8;
+      padding:28px;
+    }
+
+    .app {
+      width:920px;
+      max-width:96%;
+      background: linear-gradient(180deg, rgba(255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:18px;
+      padding:20px;
+      box-shadow: 0 8px 30px rgba(2,6,23,0.7);
+      display:flex;
+      gap:18px;
+    }
+
+    /* Left: board */
+    .board-panel{
+      width:620px;
+      background:var(--card);
+      border-radius:12px;
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+    }
+
+    .board-wrap{
+      width:100%;
+      aspect-ratio:1;
+      background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));
+      border-radius:1px;
+      padding:20px;
+      position:relative;
+      display:grid;
+      grid-template-columns:repeat(5,1fr);
+      grid-template-rows:repeat(4,1fr);
+      gap:8px;
+    }
+
+    .cell{
+      background:var(--glass);
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,0.03);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+      overflow:visible;
+      min-height:60px;
+    }
+    .cell .index {
+      position:absolute;
+      top:6px;
+      left:8px;
+      font-size:px;
+      color:(--muted);
+    }
+
+    /* Tokens */
+    .token{
+      width:28px;
+      height:28px;
+      border-radius:50%;
+      position:absolute;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#fff;
+      font-weight:700;
+      box-shadow: 0 6px 18px rgba(2,6,23,0.6);
+      transition: transform 260ms cubic-bezier(.2,.9,.3,1);
+      z-index:40;
+    }
+
+    /* Controls */
+    .controls{
+      background:var(--card);
+      border-radius:12px;
+      padding:18px;
+      flex-direction:column;
+      gap:px;
+      align-items:;
+    }
+
+    .players {
+      display:flex;
+      gap:20px;
+      justify-content:space-between;
+    }
+    .player {
+      flex:1;
+      background:rgba(255,255,255,0.02);
+      padding:10px;
+      border-radius:10px;
+      text-align:center;
+    }
+    .player .title{font-size:13px;color:var(--muted)}
+    .player .status{font-weight:700;margin-top:6px}
+
+    .dice {
+      display:flex;
+      gap:12px;
+      align-items:center;
+      justify-content:center;
+      margin-top:8px;
+    }
+    .dice-face {
+      width:200px;
+      height:110px;
+      border-radius:14px;
+      background:linear-gradient(180deg,#0e1b2a,#071226);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:44px;
+      box-shadow: inset 0 -4px 14px rgba(0,0,0,0.5), 0 8px 30px rgba(2,6,23,0.6);
+    }
+    button.roll{
+      background:linear-gradient(90deg,#06b6d4,#60a5fa);
+      border:none;
+      padding:12px 18px;
+      border-radius:10px;
+      color:#022;
+      font-weight:800;
+      font-size:16px;
+      cursor:pointer;
+      box-shadow: 0 6px 18px rgba(6,182,212,0.15);
+    }
+    button.roll[disabled]{opacity:0.45;cursor:not-allowed}
+
+    .turn {
+      text-align:center;
+      color:var(--muted);
+      font-size:14px;
+      margin-top:4px;
+    }
+
+    /* Winner modal */
+    .modal {
+      position:fixed;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:rgba(2,6,23,0.6);
+      z-index:120;
+    }
+    .modal-card{
+      background:linear-gradient(180deg,#071024,#0b1220);
+      padding:26px;
+      border-radius:14px;
+      text-align:center;
+      width:360px;
+      box-shadow: 0 12px 40px rgba(2,6,23,0.7);
+    }
+    .modal-card .big{font-size:28px;font-weight:800;margin-bottom:8px}
+    .modal-card .sub{color:var(--muted);margin-bottom:16px}
+
+    /* Responsive */
+    @media (max-width:980px){
+      .app{flex-direction:column;align-items:center}
+      .board-panel{width:100%}
+      .controls{width:100%}
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app" role="application" aria-label="Ludo board app">
+    <div class="board-panel" aria-hidden="false">
+      <h3 style="margin:0 0 6px 0">Ludo Race — 4 Players</h3>
+      <div style="color:var(--muted);font-size:13px;margin-bottom:6px">
+        Move along the 20 cells. First player to reach or pass the last cell wins.
+      </div>
+
+      <div id="board" class="board-wrap" aria-live="polite">
+        <!-- 20 cells will be generated by JS -->
+      </div>
+
+      <!-- tokens are absolutely positioned inside the board container -->
+    </div>
+
+    <div class="controls" aria-hidden="false">
+      <div class="players" id="playersSummary">
+        <!-- player summary boxes -->
+      </div>
+
+      <div class="turn" id="turnLabel">Player 1's Turn (Blue)</div>
+
+      <div class="dice" style="justify-content:center">
+        <div class="dice-face" id="diceFace">🎲</div>
+      </div>
+
+      <div style="display:flex;gap:12px;align-items:center;justify-content:center;margin-top:8px">
+        <button id="rollBtn" class="roll" aria-label="Roll dice">Roll Dice</button>
+        <button id="resetBtn" class="roll" style="background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Winner modal (hidden until needed) -->
+  <div id="modal" class="modal" style="display:none">
+    <div class="modal-card">
+      <div class="big" id="winnerText">Player X Wins!</div>
+      <div class="sub" id="winnerSub">Congratulations</div>
+      <button id="playAgain" class="roll" style="margin-top:6px">Play Again</button>
+    </div>
+  </div>
+
+<script>
+  // Configuration
+  const NUM_CELLS = 20;
+  const PLAYER_COLORS = ["#2563eb", "#ef4444", "#10b981", "#f97316"]; // blue, red, green, orange
+  const PLAYER_NAMES = ["Blue", "Red", "Green", "Orange"];
+  const boardEl = document.getElementById('board');
+  const diceFace = document.getElementById('diceFace');
+  const rollBtn = document.getElementById('rollBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const turnLabel = document.getElementById('turnLabel');
+  const playersSummary = document.getElementById('playersSummary');
+  const modal = document.getElementById('modal');
+  const winnerText = document.getElementById('winnerText');
+  const playAgain = document.getElementById('playAgain');
+
+  // State
+  let turn = 0; // 0..3
+  let positions = [0,0,0,0]; // index in 0..NUM_CELLS-1; when >=NUM_CELLS => win
+  let tokenEls = [];
+  let cells = []; // DOM elements for cells
+  let moving = false;
+
+  // Helpers
+  function createBoard(){
+    boardEl.innerHTML = '';
+    cells = [];
+    for(let i=0;i<NUM_CELLS;i++){
+      const c = document.createElement('div');
+      c.className = 'cell';
+      c.dataset.index = i;
+      c.innerHTML = `<div class="index">${i}</div>`;
+      boardEl.appendChild(c);
+      cells.push(c);
+    }
+    // Create token elements (positioned absolutely inside board)
+    // They will be appended to board container (board is position:relative)
+    // We'll create token elements now and set initial positions later.
+    for(let p=0;p<4;p++){
+      const t = document.createElement('div');
+      t.className = 'token';
+      t.style.background = PLAYER_COLORS[p];
+      t.title = PLAYER_NAMES[p];
+      t.dataset.player = p;
+      t.textContent = (p+1);
+      // about stacking order so tokens don't overlap in weird way:
+      t.style.zIndex = 50 + p;
+      boardEl.appendChild(t);
+      tokenEls[p] = t;
+    }
+  }
+
+  function createPlayerSummary(){
+    playersSummary.innerHTML = '';
+    for(let p=0;p<4;p++){
+      const box = document.createElement('div');
+      box.className = 'player';
+      box.id = `playerBox${p}`;
+      box.innerHTML = `<div class="title">Player ${p+1}</div>
+                       <div class="status" id="playerStatus${p}">${PLAYER_NAMES[p]}</div>
+                       <div style="font-size:12px;color:var(--muted);margin-top:6px">Position: <span id="pos${p}">0</span></div>`;
+      playersSummary.appendChild(box);
+    }
+  }
+
+  function updateUI(){
+    turnLabel.textContent = `Player ${turn+1}'s Turn (${PLAYER_NAMES[turn]})`;
+    for(let p=0;p<4;p++){
+      document.getElementById(`pos${p}`).textContent = Math.min(positions[p], NUM_CELLS);
+      const stat = document.getElementById(`playerStatus${p}`);
+      stat.style.color = (p===turn) ? 'var(--accent)' : 'inherit';
+    }
+  }
+
+  // ensure we compute target positions using center coords of cell
+  function getCellCenter(index){
+    const cell = cells[index];
+    const rect = cell.getBoundingClientRect();
+    const boardRect = boardEl.getBoundingClientRect();
+    // position relative to boardEl
+    const x = rect.left - boardRect.left + rect.width/2;
+    const y = rect.top - boardRect.top + rect.height/2;
+    return {x,y};
+  }
+
+  function placeTokenDirect(player, index){
+    // index must be within 0..NUM_CELLS-1
+    const token = tokenEls[player];
+    const offset = 12; // offset to separate tokens visually
+    const center = getCellCenter(index);
+    // small offsets for players to avoid perfect overlap (arrange in 2x2 around center)
+    const offsets = [
+      {dx:-10,dy:-10},
+      {dx:10,dy:-10},
+      {dx:-10,dy:10},
+      {dx:10,dy:10}
+    ];
+    const o = offsets[player];
+    token.style.transform = `translate(${center.x - 14 + o.dx}px, ${center.y - 14 + o.dy}px)`; // token size 28
+  }
+
+  // animate movement step-by-step
+  function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+  async function moveToken(player, steps){
+    if(moving) return;
+    moving = true;
+    rollBtn.disabled = true;
+    for(let s=0;s<steps;s++){
+      positions[player] += 1;
+      // clamp but still allow equal to NUM_CELLS as win marker
+      if(positions[player] >= NUM_CELLS){
+        // place token at last cell visually (index NUM_CELLS-1) and then mark win
+        positions[player] = NUM_CELLS;
+        // animate to last cell center
+        const lastIndex = Math.min(NUM_CELLS-1, NUM_CELLS-1);
+        placeTokenDirect(player, lastIndex);
+        updateUI();
+        await sleep(240);
+        break;
+      } else {
+        placeTokenDirect(player, positions[player]);
+        updateUI();
+        await sleep(260);
+      }
+    }
+
+    // Check win
+    if(positions[player] >= NUM_CELLS){
+      showWinner(player);
+      moving = false;
+      return;
+    }
+    moving = false;
+    rollBtn.disabled = false;
+  }
+
+  function showWinner(player){
+    winnerText.textContent = `🎉 Player ${player+1} Wins!`;
+    document.getElementById('winnerSub').textContent = `${PLAYER_NAMES[player]} took the game!`;
+    modal.style.display = 'flex';
+    rollBtn.disabled = true;
+  }
+
+  function resetGame(){
+    turn = 0;
+    positions = [0,0,0,0];
+    modal.style.display = 'none';
+    // position each token at its starting cell (index 0)
+    // But if starting at 0 looks cramped, we will offset them around cell 0
+    // Wait for layout
+    requestAnimationFrame(()=>{
+      for(let p=0;p<4;p++){
+        placeTokenDirect(p, positions[p]);
+      }
+      updateUI();
+      rollBtn.disabled = false;
+      diceFace.textContent = '🎲';
+    });
+  }
+
+  // Setup and events
+  function init(){
+    createBoard();
+    createPlayerSummary();
+    // ensure board has layout to compute coordinates
+    requestAnimationFrame(()=>{
+      for(let p=0;p<4;p++) placeTokenDirect(p, positions[p]);
+      updateUI();
+    });
+
+    rollBtn.addEventListener('click', async ()=>{
+      if(moving) return;
+      const roll = Math.floor(Math.random()*6)+1;
+      diceFace.textContent = roll;
+      rollBtn.disabled = true; // prevent double roll while animating
+      // animate dice "bounce"
+      diceFace.animate([{transform:'scale(1)'},{transform:'scale(1.08)'},{transform:'scale(1)'}], {duration:220, easing:'ease-out'});
+
+      await moveToken(turn, roll);
+      // after movement & possible win, if game not over advance turn
+      if(positions[turn] < NUM_CELLS){
+        turn = (turn + 1) % 4;
+      } else {
+        // current player already won (handled in moveToken)
+      }
+      updateUI();
+      if(!moving) rollBtn.disabled = false;
+    });
+
+    resetBtn.addEventListener('click', ()=>{
+      resetGame();
+    });
+
+    playAgain.addEventListener('click', ()=>{
+      resetGame();
+    });
+
+    // window resize: reposition tokens
+    window.addEventListener('resize', ()=>{
+      requestAnimationFrame(()=>{
+        for(let p=0;p<4;p++){
+          // if won and positions[p] == NUM_CELLS, place on last cell visually
+          if(positions[p] >= NUM_CELLS){
+            placeTokenDirect(p, Math.min(NUM_CELLS-1, NUM_CELLS-1));
+          } else {
+            placeTokenDirect(p, positions[p]);
+          }
+        }
+      });
+    });
+  }
+
+  // Initialize the app
+  init();
+</script>
+</body>
+</html>
